@@ -1,0 +1,51 @@
+# Unit tests only: gofmt, go vet and go test -race. The soaks (stream-soak,
+# voice-soak) and the stream quality gate run in the QA harness before a
+# release, not on each PR, so this lane stays under 5 minutes.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # The go line of go.mod (1.24). go1.26.1 faults in Pion on Windows 11
+      # (golang/go#77975); the Docker image is
+      # golang:1.24.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # gofmt -l on a file with CRLF line ends lists every file. Strip CR
+      # first, so the check gives the same result on a Windows checkout.
+      - name: gofmt
+        run: |
+          unformatted=$(git ls-files '*.go' | while IFS= read -r f; do
+            if [ -n "$(tr -d '\r' < "$f" | gofmt -l)" ]; then
+              printf '%s\n' "$f"
+            fi
+          done)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt lists these files:"
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # -race needs cgo; the ubuntu runner has gcc.
+      - name: go test -race
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race ./...

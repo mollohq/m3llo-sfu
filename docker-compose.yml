@@ -1,0 +1,53 @@
+services:
+  sfu:
+    build:
+      context: .
+      # The snapshot decoder: this file turns snapshots on (SFU_R2_* below,
+      # a local MinIO or RustFS). See the Dockerfile.
+      args:
+        OPENH264: "1"
+    volumes:
+      # Export from Nakama private key:
+      # openssl pkey -in /path/to/sfu_jwt_private.pem -pubout -out ./local/jwt_pub.pem
+      - ./local/jwt_pub.pem:/certs/jwt_pub.pem:ro
+      # The media store (01-SFU.md section 8.6), on a volume so a recreate
+      # keeps the data.
+      - sfu-data:/data
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+      - "10000-10100:10000-10100/udp"
+      - "10000:10000/tcp"
+    environment:
+      SFU_ADDR: ":8443"
+      SFU_ADMIN_ADDR: ":8080"
+      # The address the SFU puts in its ICE candidates, read from the environment
+      # (or the .env next to this file). 127.0.0.1 only works for clients on this machine.
+      # Windows and LAN runs (a phone, a second computer) set the LAN address.
+      SFU_PUBLIC_IP: "${SFU_PUBLIC_IP:-127.0.0.1}"
+      # The backend's region name: the SFU refuses a token signed for
+      # another region (01-SFU.md section 7.1), and the local backend signs
+      # eu-west.
+      SFU_REGION: "eu-west"
+      SFU_SERVER_ID: "sfu-local"
+      SFU_LOG_LEVEL: "debug"
+      SFU_JWT_PUB_KEY: "/certs/jwt_pub.pem"
+      # Snapshots go to the local S3 store of the m3llo backend's compose stack
+      # (backend/docker-compose.yml in mollohq/m3llo), on port 9000.
+      SFU_R2_ENDPOINT: "http://host.docker.internal:9000"
+      SFU_R2_BUCKET: "mello-snapshots"
+      SFU_R2_ACCESS_KEY_ID: "minioadmin"
+      SFU_R2_SECRET_ACCESS_KEY: "minioadmin"
+      SFU_SNAPSHOT_INTERVAL_S: "10"
+      SFU_STORE_PATH: "/data/store/media.db"
+      # No admin or test password here: the admin API is off (503) and test
+      # mode is off. Test mode (the soaks, a QA harness and journeys connect
+      # with ?test_password=) needs SFU_TEST_PASSWORD, and the admin API
+      # SFU_ADMIN_PASSWORD. They come from an override file, never from this
+      # one:
+      #   SFU_ADMIN_PASSWORD=<pw> docker compose \
+      #     -f docker-compose.yml -f docker-compose.test-mode.yml up -d --build
+      # A QA harness can give its own override of the same shape.
+
+volumes:
+  sfu-data:

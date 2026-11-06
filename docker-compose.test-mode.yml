@@ -1,0 +1,16 @@
+# The local SFU in test mode. The soaks, the QA harness and the journeys connect
+# with `?test_password=`, and the SFU accepts that only when it runs with the same
+# SFU_TEST_PASSWORD (internal/server/signaling.go, 01-SFU.md section 5.1). The
+# admin API needs SFU_ADMIN_PASSWORD.
+#
+#   SFU_ADMIN_PASSWORD=<password> docker compose \
+#     -f docker-compose.yml -f docker-compose.test-mode.yml up -d --build
+#
+# Locally one password does both: SFU_TEST_PASSWORD defaults to
+# SFU_ADMIN_PASSWORD. Give SFU_TEST_PASSWORD as well to keep them apart.
+# The values come from the environment of that command. They are never in a file.
+services:
+  sfu:
+    environment:
+      SFU_ADMIN_PASSWORD: "${SFU_ADMIN_PASSWORD:?set SFU_ADMIN_PASSWORD in the environment}"
+      SFU_TEST_PASSWORD: "${SFU_TEST_PASSWORD:-${SFU_ADMIN_PASSWORD}}"

@@ -1,0 +1,26 @@
+# Binaries
+/sfu
+/sfu-canary
+*.exe
+
+# Go
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certs (never commit)
+*.pem
+*.key
+*.crt
+
+# Env files
+.env
+.env.*
